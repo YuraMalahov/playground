@@ -21,7 +21,9 @@ MongoClient.connect('mongodb://localhost:27017/test_app', function(err, db) {
 app.use(logger("dev"));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-
+app.use(function (request, response) {
+    response.set('Content-Type', 'application/json');
+});
 app.use(function (request, response, next) {
     let token = request.get('X-Auth');
     if (token) {
@@ -30,13 +32,11 @@ app.use(function (request, response, next) {
             if (error) {
                 console.log(error);
             }
-
             user = user ? JSON.parse(user) : null;
             if (user && new Date(user.tokenExpire) < new Date()) {
                 redis.del(key);
                 user = null;
             }
-
             request.currentUser = user;
             next();
         });
@@ -45,20 +45,14 @@ app.use(function (request, response, next) {
         next();
     }
 });
-
 app.use(function (request, response, next) {
-    let securePaths = ['/secure'],
-        isSecurePath = -1 !== securePaths.indexOf(request.path),
-        user = request.currentUser;
+    let isSecurePath = -1 !== ['/secure'].indexOf(request.path);
 
-    if (!user && isSecurePath) {
-        response.status(403).end('Permission deny');
-        return;
-    } else if (!isSecurePath) {
-        next();
-    } else {
-        next();
+    if (!request.currentUser && isSecurePath) {
+        response.status(403).send({error: 'Permission deny'}).end();
     }
+
+    next();
 });
 
 app.get("/", function (request, response) {
@@ -73,7 +67,6 @@ app.get("/secure", function (request, response) {
 app.post("/user", function (request, response) {
     let user = request.body;
 
-    response.set('Content-Type', 'application/json');
     mongodb.collection('users')
         .find({email: user.email}, {}, {limit: 1}).toArray()
         .then(function (users) {
@@ -106,16 +99,12 @@ app.post("/user", function (request, response) {
 
 app.post("/login", function (request, response) {
     let user = request.body;
-
-    response.set('Content-Type', 'application/json');
-
+    
     createHash(user.password)
         .then(function (hash) {
-            return mongodb.collection('users').find(
-                {email: user.email, password: hash},
-                {},
-                {limit: 1}
-            ).toArray();
+            return mongodb.collection('users')
+                .find({email: user.email, password: hash}, {}, {limit: 1})
+                .toArray();
         })
         .then(function (users) {
             if (!users.length) {
