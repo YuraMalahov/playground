@@ -20,9 +20,10 @@ MongoClient.connect('mongodb://localhost:27017/test_app', function(err, db) {
 
 app.use(logger("dev"));
 app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(function (request, response) {
+app.use(bodyParser.urlencoded({extended: true}));
+app.use(function (request, response, next) {
     response.set('Content-Type', 'application/json');
+    next();
 });
 app.use(function (request, response, next) {
     let token = request.get('X-Auth');
@@ -46,10 +47,14 @@ app.use(function (request, response, next) {
     }
 });
 app.use(function (request, response, next) {
-    let isSecurePath = -1 !== ['/secure'].indexOf(request.path);
+    let isSecurePath = -1 !== [
+            'GET /secure',
+            'GET /users'
+        ]
+        .indexOf(`${request.method} ${request.path}`);
 
     if (!request.currentUser && isSecurePath) {
-        response.status(403).send({error: 'Permission deny'}).end();
+        response.status(403).json({error: 'Permission deny'}).end();
     }
 
     next();
@@ -60,7 +65,6 @@ app.get("/", function (request, response) {
 });
 
 app.get("/secure", function (request, response) {
-    console.log(request.currentUser);
     response.end('cool!');
 });
 
@@ -97,9 +101,21 @@ app.post("/user", function (request, response) {
         });
 });
 
+app.get('/users', function (request, response) {
+    mongodb.collection('users').find({}, {email: 1}).toArray()
+        .then(function (users) {
+            response.json(users);
+            response.end();
+        })
+        .catch(function (error) {
+            response.json({error: error.message});
+            response.end();
+        });
+});
+
 app.post("/login", function (request, response) {
     let user = request.body;
-    
+
     createHash(user.password)
         .then(function (hash) {
             return mongodb.collection('users')
