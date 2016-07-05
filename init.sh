@@ -38,4 +38,5 @@ sudo ./install_server.sh
 # git
 sudo apt-get install -y git
 
-
+# global node_modules
+sudo npm install pm2 -g
