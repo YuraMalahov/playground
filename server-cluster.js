@@ -3,12 +3,19 @@ var cluster = require('cluster'),
   http = require('http');
 
 if (cluster.isMaster) {
-  for (var i = 0, cpuCount = os.cpus().length; i < cpuCount; i++) {
+  var i = 0;
+    
+  for (var cpuCount = os.cpus().length; i < cpuCount; i++) {
     cluster.fork({"server_number": i});
   }
+
+  cluster.on('exit', function (worker) {
+    console.log('Worker %d died :(', worker.id);
+    cluster.fork({"server_number": ++i});
+  });
 } else {
   var env = process.env;
-    
+
   var server = http.createServer(function (req, res) {
     res.end("Hello from server #" + env.server_number);
   });
