@@ -35,6 +35,11 @@ sudo make install
 cd utils
 sudo ./install_server.sh
 
+# couchdb
+sudo add-apt-repository ppa:couchdb/stable
+sudo apt-get update
+sudo apt-get install couchdb
+
 # git
 sudo apt-get install -y git
 
